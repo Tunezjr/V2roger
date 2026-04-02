@@ -123,3 +123,135 @@ h1.logo { font-family: 'Pirata One', cursive; font-size: clamp(2.2rem, 6vw, 4.2r
         </div>
     </div>
   </div>
+  <script>
+    // --- STARFIELD ENGINE ---
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function initStars() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        stars = [];
+        for(let i=0; i<250; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 1.5,
+                vel: Math.random() * 0.05 + 0.02
+            });
+        }
+    }
+
+    function animateStars() {
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fff";
+        stars.forEach(s => {
+            ctx.globalAlpha = Math.random() * 0.5 + 0.5;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+            ctx.fill();
+            s.y -= s.vel;
+            if(s.y < 0) s.y = canvas.height;
+        });
+        requestAnimationFrame(animateStars);
+    }
+    initStars();
+    animateStars();
+
+    // --- NAUTICAL RANKINGS ---
+    const RANKS = [
+        { min: 1000000, name: "Fleet Admiral of Neverland" },
+        { min: 500000,  name: "Dread Pirate Lord" },
+        { min: 100000,  name: "Galleon Commander" },
+        { min: 25000,   name: "First Mate" },
+        { min: 5000,    name: "Swashbuckler" },
+        { min: 0,       name: "Stowaway" }
+    ];
+
+    // --- TAB LOGIC ---
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn, .tool-panel').forEach(el => el.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        });
+    });
+
+    // --- CALCULATORS ---
+
+    function calcLeverage() {
+        const deposit = parseFloat(document.getElementById('lev-deposit').value);
+        const lev = parseFloat(document.getElementById('lev-leverage').value);
+        
+        const totalPos = deposit * lev;
+        const borrow = totalPos - deposit;
+        
+        // Velocity: $V = \frac{Borrow \times Rate}{TimeFactor}$
+        // Simulated: 12.5% annualized DUST accumulation
+        const dustVelocity = (borrow * 0.125) / 365; 
+        
+        const hf = (totalPos * 0.8) / borrow; // Simple 80% LTV logic
+
+        document.getElementById('lev-r-pos').innerText = `$${totalPos.toLocaleString()}`;
+        document.getElementById('lev-r-velocity').innerText = `${dustVelocity.toFixed(4)} DUST/Day`;
+        document.getElementById('lev-r-hf').innerText = hf.toFixed(2);
+        document.getElementById('lev-r-apy').innerText = `${(15.4 * lev).toFixed(2)}%`;
+    }
+
+    function calcLiquidation() {
+        const col = parseFloat(document.getElementById('liq-collateral').value);
+        const debt = parseFloat(document.getElementById('liq-debt').value);
+        const asset = document.getElementById('liq-asset-type').value;
+
+        let ltv = 0.8;
+        if(asset === 'volatile') ltv = 0.7;
+        if(asset === 'high-vol') ltv = 0.6;
+
+        const hf = (col * ltv) / debt;
+        const liqPrice = debt / (col * ltv);
+        
+        // Storm Warning: Exit price is 10% above liquidation point
+        const stormExit = liqPrice * 1.1;
+
+        document.getElementById('liq-r-hf').innerText = hf.toFixed(2);
+        document.getElementById('liq-r-storm').innerText = `$${stormExit.toFixed(2)}`;
+        
+        const riskBox = document.getElementById('liq-r-risk');
+        if(hf < 1.1) { riskBox.innerText = "CRITICAL"; riskBox.style.color = "var(--negative)"; }
+        else if(hf < 1.5) { riskBox.innerText = "CHOPPY SEAS"; riskBox.style.color = "var(--warning)"; }
+        else { riskBox.innerText = "CLEAR SKIES"; riskBox.style.color = "var(--positive)"; }
+    }
+
+    async function loadWallet() {
+        const addr = document.getElementById('wallet-addr').value;
+        const display = document.getElementById('w-rank-display');
+        const resDiv = document.getElementById('wallet-result');
+        
+        if(!ethers.isAddress(addr)) {
+            alert("Invalid Pirate Address");
+            return;
+        }
+
+        // Simulated Blockchain Fetch
+        const mockBalance = Math.random() * 200000;
+        const rank = RANKS.find(r => mockBalance >= r.min).name;
+
+        display.innerText = rank;
+        resDiv.style.display = "block";
+        document.getElementById('w-collateral').innerText = `Total Loot: $${mockBalance.toLocaleString()}`;
+        
+        const bar = document.getElementById('w-hf-bar');
+        bar.style.width = "85%";
+        bar.style.background = "var(--positive)";
+    }
+
+    // UI Updates
+    document.getElementById('lev-leverage').oninput = function() {
+        document.getElementById('lev-leverage-val').innerText = this.value + 'x';
+    };
+
+    window.onresize = initStars;
+  </script>
+</body>
+</html>
