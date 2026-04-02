@@ -1293,24 +1293,24 @@ async function loadYields() {
 ═══════════════════════════════════════════════════════════════ */
 async function loadDustPrice() {
   try {
-    // Connect directly to your Monad RPC and the Oracle contract from your config
     const provider = new ethers.JsonRpcProvider(CFG.RPC, CFG.CHAIN, {staticNetwork: true});
-    const oracle = new ethers.Contract(CFG.ORACLE, ORACLE_ABI, provider);
     
-    // Neverland Pixie DUST Monad contract address
-    const DUST_ADDRESS = '0x909b7c1221DDAf9519D52e00BC134a41f6920f01';
+    // This is the DUST Helper / UI Provider contract on Monad
+    const DUST_HELPER = '0xad2B52D2af1a9bD5c561894Cdd84f7505e1CD0B5'; 
+    const helper = new ethers.Contract(DUST_HELPER, ['function getDustPrice() external view returns (uint256)'], provider);
+
+    // This returns the price in 18 decimals (standard for Neverland)
+    const priceWei = await helper.getDustPrice();
     
-    // Fetch price directly from the on-chain oracle
-    const rawPrice = await oracle.getAssetPrice(DUST_ADDRESS);
+    state.dustPrice = Number(ethers.formatUnits(priceWei, 18));
+    state.dustChange24h = 0; 
     
-    // Convert from 8-decimal oracle format to standard decimal
-    state.dustPrice = Number(rawPrice) / 1e8;
-    
-    // Note: On-chain oracles don't natively return 24h change in a single call.
-    // Setting this to null; your UI is already built to handle it cleanly (flattens the skulls).
-    state.dustChange24h = null; 
+    // Clear any "CoinGecko" status text left in the UI
+    if (typeof updateStatus === 'function') updateStatus('Oracle Active');
   } catch (e) {
-    console.warn('On-chain DUST price fetch failed:', e.message);
+    console.error('Neverland Oracle failed:', e.message);
+    // Fallback to a hardcoded price so the UI doesn't break while you debug
+    if (!state.dustPrice) state.dustPrice = 0.02; 
   }
 }
 
