@@ -1293,36 +1293,24 @@ async function loadYields() {
 ═══════════════════════════════════════════════════════════════ */
 async function loadDustPrice() {
   try {
-    if (!state.dustId) {
-      const sr = await fetch(CFG.COINGECKO_SEARCH, {signal: AbortSignal.timeout(6000)});
-      if (sr.ok) {
-        const sd = await sr.json();
-        const coins = sd.coins || [];
-        const match = coins.find(c =>
-          c.name.toLowerCase().includes('neverland') ||
-          c.symbol.toLowerCase() === 'dust'
-        );
-        if (match) state.dustId = match.id;
-      }
-    }
-    const ids = state.dustId ? state.dustId : 'neverland-dust,pixie-dust-2,dust-token';
-    const pr = await fetch(
-      `${CFG.COINGECKO_PRICE}?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
-      {signal: AbortSignal.timeout(6000)}
-    );
-    if (pr.ok) {
-      const pd = await pr.json();
-      for (const [id, val] of Object.entries(pd)) {
-        if (val.usd) {
-          state.dustPrice   = val.usd;
-          state.dustChange24h = val.usd_24h_change || null;
-          state.dustId      = id;
-          break;
-        }
-      }
-    }
+    // Connect directly to your Monad RPC and the Oracle contract from your config
+    const provider = new ethers.JsonRpcProvider(CFG.RPC, CFG.CHAIN, {staticNetwork: true});
+    const oracle = new ethers.Contract(CFG.ORACLE, ORACLE_ABI, provider);
+    
+    // Neverland Pixie DUST Monad contract address
+    const DUST_ADDRESS = '0x909b7c1221DDAf9519D52e00BC134a41f6920f01';
+    
+    // Fetch price directly from the on-chain oracle
+    const rawPrice = await oracle.getAssetPrice(DUST_ADDRESS);
+    
+    // Convert from 8-decimal oracle format to standard decimal
+    state.dustPrice = Number(rawPrice) / 1e8;
+    
+    // Note: On-chain oracles don't natively return 24h change in a single call.
+    // Setting this to null; your UI is already built to handle it cleanly (flattens the skulls).
+    state.dustChange24h = null; 
   } catch (e) {
-    console.warn('CoinGecko fetch failed:', e.message);
+    console.warn('On-chain DUST price fetch failed:', e.message);
   }
 }
 
